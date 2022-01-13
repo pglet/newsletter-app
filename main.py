@@ -4,13 +4,10 @@ import pglet
 from pglet import Stack, Text, Nav, Toolbar, Grid, Column, Tabs, Tab, Textbox, Button, Message
 from pglet import nav, toolbar
 
-logging.basicConfig(level=logging.INFO)
+import settings
+import store
 
-class Newsletter():
-    def __init__(self, created: datetime.date, subject: str, body: str = None):
-        self.created = created
-        self.subject = subject
-        self.body = body
+logging.basicConfig(level=logging.DEBUG)
 
 class Menu():
     def __init__(self, on_change=None):
@@ -31,31 +28,22 @@ class NewslettersScreen():
         self.newsletters = Grid(compact=True, header_visible=True, selection_mode='single', preserve_selection=True, on_select=self.grid_select, columns=[
             Column(name="Subject", field_name="subject", sortable='string'),
             Column(name="Date", field_name="created", sortable='string', sorted="desc", max_width=100)
-        ])
+        ], items=store.get_newsletters())
 
-        self.newsletters.items.append(Newsletter(created=datetime.date(2022, 1, 12), subject="My first newsletter", body="""
-Line 1
-Line 2
-Line 3
-"""))
-        self.newsletters.items.append(Newsletter(created=datetime.date(2022, 1, 14), subject="News, news, news!"))
-
-        for n in range(50):
-            self.newsletters.items.append(Newsletter(created=datetime.date(2022, 1, 15), subject=f"This is a test newsletter {n}"))
-
-        self.newsletters.selected_indices = "0 2 4"
-
+        self.newsletters.selected_items = [self.newsletters.items[0]]
         self.newsletter_details = NewsletterDetails()
-        self.view = Stack(gap=5, horizontal=True, width="100%", height="100%", controls=[
-            Stack(gap=5, width="30%", controls=[
+
+        # main view
+        self.view = Stack(gap=10, horizontal=True, width="100%", height="100%", controls=[
+            Stack(gap=5, width="30%", border_radius=5, padding=5, bgcolor="#fff", controls=[
                 Toolbar(items=[
                     toolbar.Item(text='Create newsletter', icon='Add')
                 ]),
-                Stack(height="100%", border="solid 1px #eee", scrolly=True, controls=[
+                Stack(height="100%", scrolly=True, controls=[
                     self.newsletters
                 ])                                                   
             ]),
-            Stack(width="70%", controls=[
+            Stack(gap=5, width="70%", border_radius=5, padding=5, bgcolor="#fff", controls=[
                 self.newsletter_details.view
             ])
         ])
@@ -66,11 +54,10 @@ Line 3
         if len(self.newsletters.selected_items) > 0:
             nl = self.newsletters.selected_items[0]
         self.newsletter_details.set_newsletter(nl)
-        print("selected indices:", self.newsletters.selected_indices)
 
     def activate(self):
         print("Activate NewslettersScreen")
-        #self.newsletter_details.set_newsletter(None) 
+        self.grid_select(None)
 
 class NewsletterDetails():
     def __init__(self): 
@@ -84,7 +71,7 @@ class NewsletterDetails():
 
         self.view = Stack(gap=5, height="100%", controls=[
             self.toolbar,
-            Stack(padding=10, height="100%", bgcolor="#f0f0f0", controls=[
+            Stack(padding=10, height="100%", border_top="solid 1px #eee", controls=[
                 self.subject,
                 self.body
             ])
@@ -119,17 +106,23 @@ class SettingsScreen():
         ])
 
         # main view combining all controls
-        self.view = Stack(width="50%", controls=[
-            Text("Settings", size='xLarge'),
-            Text("Application settings are saved in `$HOME/.newsletter/config.json` file.", markdown=True),
-            self.message,
-            self.tabs
+        self.view = Stack(width="100%", min_height="100%", border_radius=5, bgcolor="#fff", controls=[
+            Stack(padding=20, scrolly=True, controls=[
+                Stack(width="50%", controls=[
+                    Text("Settings", size='xLarge'),
+                    Text("Application settings are saved in `$HOME/.newsletter/config.json` file.", markdown=True),
+                    self.message,
+                    self.tabs
+                ])
+            ])
         ])
 
     # called when the screen is selected in the menu
     # load settings from a file if exists
     def activate(self):
-        print("Activate settings!")
+        config = settings.load()
+        self.private_key.value = config.mailgunApiKey
+        self.view.update()
 
     # update settings
     def save_click(self, e):
@@ -141,9 +134,10 @@ class SettingsScreen():
 
 def main(page):
 
-    page.gap = 5
+    page.padding = 10
     page.vertical_fill = True
     page.title = "Newsletters"
+    page.bgcolor = "#f0f0f0"
 
     screens = {
         "newsletters": NewslettersScreen(),
@@ -160,8 +154,8 @@ def main(page):
 
     menu = Menu(menu_change).view
 
-    layout = Stack(gap=5, horizontal=True, vertical_fill=True, width="100%", controls=[
-        Stack(width="200", height="100%", controls=[
+    layout = Stack(gap=10, horizontal=True, vertical_fill=True, width="100%", controls=[
+        Stack(width="230", height="100%", border_radius=5, padding=5, bgcolor="#fff", controls=[
             menu
         ]),
         screen_holder
